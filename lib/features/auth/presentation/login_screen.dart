@@ -1,6 +1,8 @@
 // صفحه لاگین اپ — کاربر از اینجا وارد سیستم بانک می‌شود
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/widgets/widgets_imports.dart';
+import 'package:flutter_application_1/features/auth/presentation/register_screen.dart';
+import 'package:flutter_application_1/services/bank_api_service.dart';
 
 // ویجت‌های آماده (فیلد و دکمه) را از پوشه widgets ایمپورت کردیم
 
@@ -20,6 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   // وضعیت لودینگ برای زمانی که در حال لاگین هستیم
   bool _loading = false;
 
+  // سرویس ارتباط با سرور جاوا
+  final _api = BankApiService();
+
   // وقتی صفحه بسته می‌شود، کنترلرها را تمیز می‌کنیم
   @override
   void dispose() {
@@ -28,17 +33,49 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // هندل کردن کلیک روی دکمه لاگین
+  // هندل کردن کلیک روی دکمه لاگین و ارسال درخواست به سرور
   Future<void> _onLogin() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+    });
 
-    // شبیه‌سازی تأخیر درخواست شبکه (فعلاً فیک)
-    await Future.delayed(const Duration(milliseconds: 700)); // فیک
+    final username = _usernameCtrl.text.trim();
+    final password = _passwordCtrl.text.trim();
 
-    // فعلاً بدون اعتبارسنجی، کاربر را مستقیماً به صفحه Home می‌بریم
-    if (!mounted) return;
-    setState(() => _loading = false);
-    Navigator.of(context).pushReplacementNamed('/home');
+    try {
+      final ok = await _api.login(username, password);
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      if (ok) {
+        // لاگین موفق → رفتن به صفحه هوم
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        // لاگین ناموفق
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('نام کاربری یا رمز اشتباه است')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      // برای دیباگ: چاپ ارور در کنسول تا بفهمیم مشکل دقیقا چیه
+      // ignore: avoid_print
+      print('Login error: $e');
+
+      // خطا در اتصال به سرور
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خطا در اتصال به سرور')),
+      );
+    }
   }
 
   // ساختن UI صفحه لاگین
@@ -88,7 +125,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   // دکمه‌ای برای رفتن به صفحه ساخت اکانت جدید (بعداً پیاده‌سازی می‌شود)
                   TextButton(
                     onPressed: () {
-                      // بعداً: صفحه Register
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterScreen(),
+                        ),
+                      );
                     },
                     child: const Text('Create new account'),
                   ),
